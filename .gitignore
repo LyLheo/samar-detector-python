@@ -1,0 +1,16 @@
+# Archivo .gitignore
+
+# El archivo de contraseñas
+.env
+
+# Archivos generados por el script
+Times.csv
+visualizacion_eventos.html
+
+# Archivos de caché de Python
+__pycache__/
+*.pyc
+
+# (Opcional) Si usas un entorno virtual
+.venv/
+venv/
