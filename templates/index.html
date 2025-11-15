@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAMAR - Control de Seguridad</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* Paleta Light / Clean */
+            --bg-light: #f4f7f6;
+            --panel-bg: #ffffff;
+            --text-main: #2c3e50;
+            --text-muted: #7f8c8d;
+            --accent-blue: #3498db;
+            --border-color: #e2e8f0;
+            --danger-color: #e74c3c;
+            --success-color: #2ecc71;
+            
+            --font-main: 'Roboto', sans-serif;
+            --font-log: 'Roboto Mono', monospace;
+        }
+
+        body { 
+            background-color: var(--bg-light); 
+            color: var(--text-main); 
+            font-family: var(--font-main); 
+            margin: 0; 
+            padding: 20px; 
+        }
+        
+        /* Layout principal */
+        .container { 
+            max-width: 1400px; 
+            margin: 0 auto; 
+            display: grid; 
+            grid-template-columns: 2fr 1fr; 
+            gap: 25px; 
+        }
+
+        /* Encabezado */
+        header { 
+            grid-column: 1 / -1; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            border-bottom: 2px solid var(--border-color); 
+            padding-bottom: 15px; 
+            margin-bottom: 10px; 
+        }
+        
+        h1 { 
+            margin: 0; 
+            color: var(--text-main); 
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+        
+        small {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .status-indicator {
+            background-color: rgba(46, 204, 113, 0.1);
+            color: var(--success-color);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Paneles con estilo "Tarjeta" (Card) */
+        .panel { 
+            background: var(--panel-bg); 
+            border-radius: 12px; 
+            padding: 20px; 
+            border: 1px solid var(--border-color); 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.03); 
+        }
+        
+        /* Video */
+        .video-box {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+        }
+
+        .video-box img { 
+            width: 100%; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        /* Controles y Botón */
+        .control-panel { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 20px; 
+        }
+        
+        .arm-btn {
+            padding: 18px; 
+            font-size: 1.1rem; 
+            font-weight: 700; 
+            border: none; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            transition: all 0.3s ease;
+            text-transform: uppercase; 
+            letter-spacing: 1px;
+            font-family: var(--font-main);
+        }
+
+        .arm-btn.armed { 
+            background-color: var(--danger-color); 
+            color: white; 
+            box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3); 
+        }
+
+        .arm-btn.disarmed { 
+            background-color: var(--success-color); 
+            color: white; 
+            box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3); 
+        }
+
+        .arm-btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        /* Bitácora de Auditoría (Logs) */
+        .logs-title {
+            color: var(--text-main);
+            font-weight: 700;
+            font-size: 1rem;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .logs-box { 
+            height: 350px; 
+            overflow-y: auto; 
+            font-size: 0.85rem; 
+            background: #f8fafc; 
+            border: 1px solid var(--border-color); 
+            border-radius: 8px;
+            padding: 15px; 
+            font-family: var(--font-log); /* Fuente monoespaciada para el log */
+            color: #334155;
+        }
+
+        .log-entry { 
+            margin-bottom: 8px; 
+            border-bottom: 1px dashed var(--border-color); 
+            padding-bottom: 6px; 
+        }
+
+        .log-entry:first-child { 
+            color: var(--accent-blue); 
+            font-weight: bold;
+        }
+
+        /* Galería Forense */
+        .gallery-section { 
+            grid-column: 1 / -1; 
+            margin-top: 10px; 
+        }
+
+        .gallery-header {
+            border-bottom: 2px solid var(--border-color); 
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            color: var(--text-main);
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        .gallery-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); 
+            gap: 20px; 
+        }
+
+        .evidence-card { 
+            background: var(--panel-bg); 
+            border: 1px solid var(--border-color); 
+            padding: 8px; 
+            border-radius: 8px; 
+            transition: transform 0.2s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+
+        .evidence-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+        }
+
+        .evidence-card img { 
+            width: 100%; 
+            height: auto; 
+            display: block; 
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .evidence-meta { 
+            font-size: 0.75rem; 
+            text-align: center; 
+            padding-top: 10px; 
+            color: var(--text-muted); 
+            font-weight: 500;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) { 
+            .container { grid-template-columns: 1fr; } 
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <div>
+                <h1>SAMAR Dashboard</h1>
+                <small>Sistema de Auditoría y Control de Accesos</small>
+            </div>
+            <div class="status-indicator">● CONEXIÓN ESTABLE</div>
+        </header>
+
+        <div class="panel video-box">
+            <img src="{{ url_for('video_feed') }}" alt="Transmisión en Vivo de Bodega">
+        </div>
+
+        <div class="panel control-panel">
+            <button id="arm-btn" class="arm-btn disarmed" onclick="toggleArm()">🛡️ ACTIVAR SISTEMA</button>
+            
+            <div style="margin-top: 10px;">
+                <span class="logs-title">📑 Bitácora de Auditoría</span>
+                <div class="logs-box" id="logs-container">
+                    <div class="log-entry">Sincronizando con el servidor...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel gallery-section">
+            <h3 class="gallery-header">📂 Evidencia Forense de Ingresos</h3>
+            <div class="gallery-grid" id="gallery-container">
+                </div>
+        </div>
+    </div>
+
+    <script>
+        // --- LÓGICA JAVASCRIPT ---
+        
+        function toggleArm() {
+            fetch('/api/toggle_arm', { method: 'POST' })
+                .then(res => res.json())
+                .then(data => updateUI(data.armed));
+        }
+
+        function updateUI(isArmed) {
+            const btn = document.getElementById('arm-btn');
+            if (isArmed) {
+                btn.innerHTML = "🛑 DESACTIVAR SISTEMA";
+                btn.className = "arm-btn armed";
+            } else {
+                btn.innerHTML = "🛡️ ACTIVAR SISTEMA";
+                btn.className = "arm-btn disarmed";
+            }
+        }
+
+        function refreshData() {
+            // 1. Obtener Estado y Logs
+            fetch('/api/status')
+                .then(res => res.json())
+                .then(data => {
+                    updateUI(data.armed);
+                    
+                    const logBox = document.getElementById('logs-container');
+                    logBox.innerHTML = '';
+                    data.logs.forEach(log => {
+                        const div = document.createElement('div');
+                        div.className = 'log-entry';
+                        div.textContent = log;
+                        logBox.appendChild(div);
+                    });
+                });
+
+            // 2. Obtener Galería
+            fetch('/api/gallery')
+                .then(res => res.json())
+                .then(events => {
+                    const gallery = document.getElementById('gallery-container');
+                    gallery.innerHTML = '';
+                    
+                    if (events.length === 0) {
+                        gallery.innerHTML = '<p style="padding:10px; color: #7f8c8d;">No hay registros de ingresos recientes.</p>';
+                    }
+
+                    events.forEach(evt => {
+                        const card = document.createElement('div');
+                        card.className = 'evidence-card';
+                        card.innerHTML = `
+                            <img src="/static/${evt.image}" onclick="window.open(this.src)" title="Haga clic para ampliar">
+                            <div class="evidence-meta">Registro #${evt.id} | ${evt.timestamp}</div>
+                        `;
+                        gallery.appendChild(card);
+                    });
+                });
+        }
+
+        setInterval(refreshData, 1000);
+    </script>
+</body>
+</html>
