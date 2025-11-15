@@ -6,6 +6,7 @@
 # Archivos generados por el script
 Times.csv
 visualizacion_eventos.html
+Grafica_Movimiento.html
 
 # Archivos de caché de Python
 __pycache__/
@@ -14,3 +15,10 @@ __pycache__/
 # (Opcional) Si usas un entorno virtual
 .venv/
 venv/
+
+# Archivos de modelo de IA
+*.pt
+*.engine
+
+# Archivos de caché de Ultralytics
+*.json
