@@ -14,12 +14,12 @@
 ---
 </div>
 
-## 📌 Overview
+##  Overview
 SAMAR (*Sistema de Alerta y Monitoreo Activo con Reconocimiento*) was originally prototyped as a capstone engineering project (UNP) and has evolved into a **Production-Ready Edge Computing Security System**. 
 
 Designed to eliminate "alarm fatigue" in high-traffic enterprise environments, SAMAR operates entirely on-premise. It guarantees absolute data privacy and ultra-low latency without reliance on external cloud APIs, utilizing a state-of-the-art hybrid AI detection motor.
 
-## 🚀 Enterprise Features
+##  Enterprise Features
 
 - **Multi-Process Architecture (GIL-Bypass):** Python's Global Interpreter Lock is bypassed by isolating the heavy hardware-accelerated computer vision tasks (Producer) from the Flask web server and I/O tasks (Consumer) using Inter-Process Communication (IPC) queues.
 - **Hybrid Detection Motor (OpenCV + YOLOv8s):** To conserve CPU/GPU cycles, a low-cost OpenCV background subtraction filter actively monitors pixel variations. The heavy YOLOv8s neural network is strictly triggered only upon physical motion validation, eliminating false positives (shadows, pets).
@@ -93,7 +93,7 @@ FLASK_DEBUG="False"
 
 ---
 
-## 🏃‍♂️ Usage
+##  Usage
 
 Activate your virtual environment and launch the main web orchestrator:
 
