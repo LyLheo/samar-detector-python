@@ -1,69 +1,112 @@
-# SAMAR v3.0 (Sistema de Alerta y Monitoreo Activo con Reconocimiento)
+<div align="center">
 
-Prototipo de sistema de vigilancia inteligente desarrollado como proyecto final para la carrera de Ingeniería de Sistemas (UNP).
+# SAMAR 🛡️
+**Intelligent Perimeter Security & Edge Computing System**
 
-Este sistema utiliza Python y una red neuronal **YOLOv8** para detectar movimiento, identificar intrusos (personas) en tiempo real, y enviar alertas inmediatas por correo electrónico con evidencia visual.
+[![Python 3.8+](https://img.shields.io/badge/Python-3.8+-blue.svg?logo=python&logoColor=white)](https://www.python.org)
+[![YOLOv8](https://img.shields.io/badge/AI-YOLOv8s-FF8C00.svg?logo=ultralytics&logoColor=white)](https://github.com/ultralytics/ultralytics)
+[![OpenCV](https://img.shields.io/badge/Vision-OpenCV-green.svg?logo=opencv&logoColor=white)](https://opencv.org/)
+[![Flask](https://img.shields.io/badge/Backend-Flask-black.svg?logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
+[![SecOps](https://img.shields.io/badge/Security-Hardened-red.svg)](#)
 
-## 🚀 Características Principales
+*An enterprise-grade, zero-cloud Video Management System (VMS) engineered for high-concurrency threat detection, autonomous forensic archiving, and real-time Server-Sent Events (SSE) telemetry.*
 
-* **Detección de IA (YOLOv8s):** Utiliza un modelo de IA "small" (`yolov8s.pt`) para una detección de personas precisa, eliminando falsos positivos de sombras, mascotas u objetos.
-* **Filtro de 2 Etapas:** Un filtro de movimiento (OpenCV) de bajo costo computacional activa el análisis de IA, optimizando el rendimiento.
-* **Alertas No Bloqueantes:** El sistema de alertas por correo se ejecuta en un hilo (`threading`) separado, garantizando que el video en vivo nunca se congele ("lag").
-* **Lógica de Alerta Avanzada:**
-    * **Retraso de 1s:** Espera 1 segundo después de la detección inicial para tomar una foto clara del intruso (evitando fotos de "hombros").
-    * **Cooldown de 10s:** El sistema se "resetea" 10 segundos después de que una persona abandona la escena, permitiendo múltiples alertas para eventos separados.
-* **Registro y Visualización:** Guarda un log de todos los eventos en `Times.csv` y incluye un script (`visualizador.py`) para generar un reporte gráfico en HTML.
-* **Configuración Segura:** Todas las credenciales se manejan de forma segura fuera del código usando un archivo `.env`.
+---
+</div>
+
+## 📌 Overview
+SAMAR (*Sistema de Alerta y Monitoreo Activo con Reconocimiento*) was originally prototyped as a capstone engineering project (UNP) and has evolved into a **Production-Ready Edge Computing Security System**. 
+
+Designed to eliminate "alarm fatigue" in high-traffic enterprise environments, SAMAR operates entirely on-premise. It guarantees absolute data privacy and ultra-low latency without reliance on external cloud APIs, utilizing a state-of-the-art hybrid AI detection motor.
+
+## 🚀 Enterprise Features
+
+- **Multi-Process Architecture (GIL-Bypass):** Python's Global Interpreter Lock is bypassed by isolating the heavy hardware-accelerated computer vision tasks (Producer) from the Flask web server and I/O tasks (Consumer) using Inter-Process Communication (IPC) queues.
+- **Hybrid Detection Motor (OpenCV + YOLOv8s):** To conserve CPU/GPU cycles, a low-cost OpenCV background subtraction filter actively monitors pixel variations. The heavy YOLOv8s neural network is strictly triggered only upon physical motion validation, eliminating false positives (shadows, pets).
+- **VMS Command Center (SOC Dashboard):** A Deep Navy "Enterprise Light" tactical dashboard featuring a Native OpenCV HUD, a local System Audit Console, and native CSS radial charts.
+- **Zero-Latency Telemetry (SSE):** Replaces traditional HTTP polling with a persistent, unidirectional TCP tunnel (Server-Sent Events) for real-time node monitoring (CPU load, detection ratios).
+- **Automated Forensic Data Management:** Autonomous background daemon threads handle high-quality JPEG evidence extraction, asynchronous SMTP email dispatching, and SQLite logging.
+- **SecOps Hardened:** Strict HTTP security headers (CSP, X-Frame-Options), complete secret abstraction via `.env`, parameterized SQL queries, and zero hardcoded credentials.
 
 ---
 
-## 🛠️ Instalación y Configuración
+## 🏗️ Architecture
 
-### 1. Prerrequisitos
+```mermaid
+graph TD;
+    Camera[Video Source] --> |Raw Frames| VE[VisionEngine Process]
+    VE --> |OpenCV Motion Filter| Filter{Motion?}
+    Filter -- Yes --> YOLO[YOLOv8s Inference]
+    Filter -- No --> Drop[Skip Inference]
+    
+    YOLO --> |Threat Confirmed| IPC[IPC Shared Queues]
+    VE --> |Telemetry Data| IPC
+    
+    IPC --> |Consume| Web[Flask Web Core Process]
+    Web --> |SSE Tunnel| Dashboard[SOC VMS Dashboard]
+    Web --> |Async Thread| SQLite[(Forensic DB)]
+    Web --> |Async Thread| SMTP[Email Dispatcher]
+```
 
-* Python 3.8+
-* Git
-
-### 2. Instalación
-
-1.  **Clonar el repositorio:**
-    ```bash
-    git clone [https://github.com/LyLheo/samar-detector-python.git](https://github.com/LyLheo/samar-detector-python.git)
-    cd samar-detector-python
-    ```
-
-2.  **Crear y activar un entorno virtual:**
-    ```bash
-    # En Windows
-    python -m venv venv
-    .\venv\Scripts\activate
-    ```
-
-3.  **Instalar las dependencias:**
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-### 3. Configuración del Correo
-
-1.  Crea un archivo llamado `.env` en la raíz del proyecto.
-2.  Añade tus credenciales de Gmail. (**Importante:** Debes usar una "Contraseña de Aplicación" de 16 dígitos de Google, no tu contraseña normal).
-
-    ```ini
-    # Archivo .env
-    GMAIL_USER="tu-correo@gmail.com"
-    GMAIL_PASS="tu-contraseña-de-app-de-16-digitos"
-    GMAIL_DESTINO="correo-que-recibe-la-alerta@ejemplo.com"
-    ```
+*(For a deep dive into the engineering decisions, see [ARCHITECTURE.md](ARCHITECTURE.md)).*
 
 ---
 
-## 🏃‍♂️ Modo de Uso
+## 🛠️ Installation & Setup
 
-### 1. Iniciar el Detector
+### 1. Prerequisites
+- Python 3.8+
+- Git
+- A connected webcam or video feed
 
-Asegúrate de tener tu cámara web conectada y tu entorno virtual (`venv`) activado.
+### 2. Clone and Install
+```bash
+# Clone the repository
+git clone https://github.com/LyLheo/samar-detector-python.git
+cd samar-detector-python
+
+# Create and activate a virtual environment
+python -m venv venv
+
+# Windows
+.\venv\Scripts\activate
+# Linux/macOS
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+### 3. Environment Configuration (SecOps)
+SAMAR requires an Application Password from your Google Account to dispatch email alerts autonomously.
+Create a `.env` file in the root directory (you can use `.env.example` as a template):
+
+```env
+# .env
+GMAIL_USER="your-email@gmail.com"
+GMAIL_PASS="your-16-digit-app-password"
+GMAIL_DESTINO="security-team@example.com"
+FLASK_SECRET_KEY="auto-generated-if-empty"
+FLASK_DEBUG="False"
+```
+> **Note:** The `.env` file is strictly ignored by `.gitignore` to prevent credential leakage.
+
+---
+
+## 🏃‍♂️ Usage
+
+Activate your virtual environment and launch the main web orchestrator:
 
 ```bash
-python detector.py
+python webapp.py
+```
 
+The system will boot the Vision Engine, allocate shared memory, and start the Flask server.
+Open your browser and navigate to the SOC Command Center:
+**http://localhost:5000**
+
+---
+
+<div align="center">
+  <i>Engineered for Performance. Hardened for Security.</i>
+</div>
