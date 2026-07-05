@@ -3,318 +3,682 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SAMAR - Control de Seguridad</title>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono&display=swap" rel="stylesheet">
+    <title>SAMAR - Enterprise Security</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            /* Paleta Light / Clean */
-            --bg-light: #f4f7f6;
-            --panel-bg: #ffffff;
-            --text-main: #2c3e50;
-            --text-muted: #7f8c8d;
-            --accent-blue: #3498db;
-            --border-color: #e2e8f0;
-            --danger-color: #e74c3c;
-            --success-color: #2ecc71;
+            /* Premium Enterprise Light Theme */
+            --bg-body: #F4F7F9;
+            --surface-color: #FFFFFF;
+            --text-primary: #1E293B;
+            --text-secondary: #64748B;
+            --border-color: #E2E8F0;
             
-            --font-main: 'Roboto', sans-serif;
-            --font-log: 'Roboto Mono', monospace;
+            /* Status & Accents */
+            --brand-blue: #0F172A;
+            --accent-blue: #2563EB;
+            --success: #10B981;
+            --success-bg: #D1FAE5;
+            --danger: #EF4444;
+            --danger-bg: #FEE2E2;
+            --warning: #F59E0B;
+            
+            --radius-md: 12px;
+            --radius-lg: 20px;
+            
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+            
+            --font-main: 'Inter', system-ui, sans-serif;
         }
 
-        body { 
-            background-color: var(--bg-light); 
-            color: var(--text-main); 
-            font-family: var(--font-main); 
-            margin: 0; 
-            padding: 20px; 
-        }
-        
-        /* Layout principal */
-        .container { 
-            max-width: 1400px; 
-            margin: 0 auto; 
-            display: grid; 
-            grid-template-columns: 2fr 1fr; 
-            gap: 25px; 
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-font-smoothing: antialiased;
         }
 
-        /* Encabezado */
-        header { 
-            grid-column: 1 / -1; 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            border-bottom: 2px solid var(--border-color); 
-            padding-bottom: 15px; 
-            margin-bottom: 10px; 
-        }
-        
-        h1 { 
-            margin: 0; 
-            color: var(--text-main); 
-            font-size: 1.8rem;
-            font-weight: 700;
-        }
-        
-        small {
-            color: var(--text-muted);
-            font-size: 0.9rem;
+        body {
+            background-color: var(--bg-body);
+            color: var(--text-primary);
+            font-family: var(--font-main);
+            min-height: 100vh;
+            padding: 24px 40px;
         }
 
-        .status-indicator {
-            background-color: rgba(46, 204, 113, 0.1);
-            color: var(--success-color);
-            padding: 8px 15px;
-            border-radius: 20px;
-            font-weight: bold;
-            font-size: 0.9rem;
+        /* Top Navigation */
+        .header {
             display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .brand {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .brand h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--brand-blue);
+            letter-spacing: -0.5px;
+        }
+
+        .brand span {
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .sys-status {
+            display: inline-flex;
             align-items: center;
             gap: 8px;
+            padding: 8px 16px;
+            background-color: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: 9999px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            box-shadow: var(--shadow-sm);
         }
 
-        /* Paneles con estilo "Tarjeta" (Card) */
-        .panel { 
-            background: var(--panel-bg); 
-            border-radius: 12px; 
-            padding: 20px; 
-            border: 1px solid var(--border-color); 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.03); 
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--success);
+            border-radius: 50%;
+            box-shadow: 0 0 0 3px var(--success-bg);
         }
         
-        /* Video */
-        .video-box {
+        .sys-status.offline .status-dot {
+            background-color: var(--danger);
+            box-shadow: 0 0 0 3px var(--danger-bg);
+        }
+
+        /* Layout Grid */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 24px;
+            align-items: start;
+        }
+        
+        .left-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* Surface Cards */
+        .card {
+            background-color: var(--surface-color);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-md);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card-header {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #FAFAFA;
+        }
+
+        .card-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Video Feed Section */
+        .video-wrapper {
+            position: relative;
+            padding: 24px;
             display: flex;
             justify-content: center;
             align-items: center;
-            padding: 10px;
+            background: #F8FAFC;
         }
 
-        .video-box img { 
-            width: 100%; 
-            border-radius: 8px; 
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        .video-wrapper img {
+            width: 100%;
+            height: auto;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+        }
+
+        /* System Audit Console */
+        .audit-console {
+            height: 140px;
+            overflow-y: auto;
+            background: #F8FAFC;
+            padding: 16px;
+            font-family: 'JetBrains Mono', Consolas, monospace;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+        .audit-console::-webkit-scrollbar { width: 4px; }
+        .audit-console::-webkit-scrollbar-thumb { background-color: #CBD5E1; border-radius: 2px; }
+        
+        .audit-entry {
+            margin-bottom: 8px;
+            border-bottom: 1px dashed var(--border-color);
+            padding-bottom: 6px;
+            line-height: 1.4;
+        }
+        .audit-entry:last-child { border-bottom: none; margin-bottom: 0; }
+        .audit-time { color: var(--accent-blue); font-weight: 600; margin-right: 8px; }
+
+        /* Controls Section */
+        .control-panel {
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .telemetry-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
         }
         
-        /* Controles y Botón */
-        .control-panel { 
-            display: flex; 
-            flex-direction: column; 
-            gap: 20px; 
+        .chart-box {
+            background: #FAFAFA;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 20px 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.02);
+        }
+
+        /* CSS NATIVE RADIAL CHARTS (ZERO FLICKER) */
+        .circular-progress {
+            position: relative;
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            background: conic-gradient(var(--clr) calc(var(--val) * 1%), var(--border-color) 0deg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* Suavizamos la transición para evitar cualquier salto brusco */
+            transition: background 0.4s ease-out;
+        }
+
+        .circular-progress::before {
+            content: '';
+            position: absolute;
+            width: 116px;
+            height: 116px;
+            background-color: #FAFAFA;
+            border-radius: 50%;
+        }
+
+        .progress-content {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 1;
+        }
+
+        .progress-value {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1.2;
         }
         
-        .arm-btn {
-            padding: 18px; 
-            font-size: 1.1rem; 
-            font-weight: 700; 
-            border: none; 
-            border-radius: 8px; 
-            cursor: pointer; 
-            transition: all 0.3s ease;
-            text-transform: uppercase; 
-            letter-spacing: 1px;
+        .progress-label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        /* Premium Toggle Button */
+        .btn-toggle {
+            width: 100%;
+            padding: 16px 24px;
+            border-radius: var(--radius-md);
+            border: none;
             font-family: var(--font-main);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            box-shadow: var(--shadow-sm);
         }
 
-        .arm-btn.armed { 
-            background-color: var(--danger-color); 
-            color: white; 
-            box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3); 
+        .btn-toggle.disarmed {
+            background-color: var(--brand-blue);
+            color: #FFFFFF;
+        }
+        .btn-toggle.disarmed:hover {
+            background-color: #1E293B;
+            transform: translateY(-1px);
         }
 
-        .arm-btn.disarmed { 
-            background-color: var(--success-color); 
-            color: white; 
-            box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3); 
+        .btn-toggle.armed {
+            background-color: var(--danger-bg);
+            color: var(--danger);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+        .btn-toggle.armed:hover {
+            background-color: #FECACA;
         }
 
-        .arm-btn:hover {
-            transform: translateY(-2px);
+        /* Forensic DataGrid (Tabla Moderna) */
+        .datagrid-panel {
+            grid-column: 1 / -1;
+            height: 320px;
+        }
+
+        .table-container {
+            flex: 1;
+            overflow-y: auto;
+            background: #FFFFFF;
         }
         
-        /* Bitácora de Auditoría (Logs) */
-        .logs-title {
-            color: var(--text-main);
-            font-weight: 700;
-            font-size: 1rem;
-            margin-bottom: 10px;
-            display: block;
+        .table-container::-webkit-scrollbar { width: 6px; }
+        .table-container::-webkit-scrollbar-thumb { background-color: #CBD5E1; border-radius: 4px; }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            text-align: left;
         }
 
-        .logs-box { 
-            height: 350px; 
-            overflow-y: auto; 
-            font-size: 0.85rem; 
-            background: #f8fafc; 
-            border: 1px solid var(--border-color); 
-            border-radius: 8px;
-            padding: 15px; 
-            font-family: var(--font-log); /* Fuente monoespaciada para el log */
-            color: #334155;
+        .data-table th {
+            position: sticky;
+            top: 0;
+            background: #FAFAFA;
+            color: var(--text-secondary);
+            padding: 12px 24px;
+            font-weight: 600;
+            border-bottom: 1px solid var(--border-color);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            z-index: 10;
         }
 
-        .log-entry { 
-            margin-bottom: 8px; 
-            border-bottom: 1px dashed var(--border-color); 
-            padding-bottom: 6px; 
+        .data-table td {
+            padding: 12px 24px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-primary);
+            vertical-align: middle;
         }
 
-        .log-entry:first-child { 
-            color: var(--accent-blue); 
-            font-weight: bold;
+        .data-table tr:hover {
+            background: #F8FAFC;
         }
 
-        /* Galería Forense */
-        .gallery-section { 
-            grid-column: 1 / -1; 
-            margin-top: 10px; 
-        }
-
-        .gallery-header {
-            border-bottom: 2px solid var(--border-color); 
-            padding-bottom: 10px;
-            margin-bottom: 20px;
-            color: var(--text-main);
-            font-size: 1.2rem;
-            font-weight: 700;
-        }
-
-        .gallery-grid { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); 
-            gap: 20px; 
-        }
-
-        .evidence-card { 
-            background: var(--panel-bg); 
-            border: 1px solid var(--border-color); 
-            padding: 8px; 
-            border-radius: 8px; 
-            transition: transform 0.2s;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-        }
-
-        .evidence-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
-        }
-
-        .evidence-card img { 
-            width: 100%; 
-            height: auto; 
-            display: block; 
-            border-radius: 4px;
+        .td-thumb {
+            width: 70px;
+            height: 45px;
+            border-radius: 6px;
+            object-fit: cover;
+            border: 1px solid var(--border-color);
             cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .td-thumb:hover {
+            transform: scale(1.1);
+            box-shadow: var(--shadow-md);
         }
 
-        .evidence-meta { 
-            font-size: 0.75rem; 
-            text-align: center; 
-            padding-top: 10px; 
-            color: var(--text-muted); 
+        .badge {
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .badge-threat {
+            background: var(--danger-bg);
+            color: var(--danger);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+        .badge-info {
+            background: #E0F2FE;
+            color: #0284C7;
+            border: 1px solid rgba(2, 132, 199, 0.2);
+        }
+
+        .btn-load-more {
+            width: 100%;
+            padding: 12px;
+            background: #F8FAFC;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            border-top: 1px solid var(--border-color);
+            transition: background 0.2s;
+        }
+        .btn-load-more:hover { background: #F1F5F9; }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 9999;
+        }
+        .toast {
+            background: var(--surface-color);
+            border-left: 4px solid var(--accent-blue);
+            border-radius: 6px;
+            padding: 12px 20px;
+            box-shadow: var(--shadow-md);
+            font-size: 0.85rem;
             font-weight: 500;
+            color: var(--text-primary);
+            animation: slideIn 0.3s ease-out forwards, fadeOut 0.3s ease-out 4s forwards;
+            max-width: 350px;
         }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes fadeOut { to { opacity: 0; transform: translateY(10px); } }
 
-        /* Responsive */
-        @media (max-width: 768px) { 
-            .container { grid-template-columns: 1fr; } 
+        @media (max-width: 1024px) {
+            .dashboard-grid { grid-template-columns: 1fr; }
+            body { padding: 16px; }
         }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <header>
-            <div>
-                <h1>SAMAR Dashboard</h1>
-                <small>Sistema de Auditoría y Control de Accesos</small>
-            </div>
-            <div class="status-indicator">● CONEXIÓN ESTABLE</div>
-        </header>
+    <header class="header">
+        <div class="brand">
+            <h1>SAMAR</h1>
+            <span>Intelligent Perimeter Security</span>
+        </div>
+        <div class="sys-status" id="sys-status">
+            <div class="status-dot"></div>
+            Data Link: Connecting...
+        </div>
+    </header>
 
-        <div class="panel video-box">
-            <img src="{{ url_for('video_feed') }}" alt="Transmisión en Vivo de Bodega">
+    <div class="dashboard-grid">
+        
+        <!-- Left Panel: Video + Audit -->
+        <div class="left-panel">
+            <!-- Video Feed Area -->
+            <div class="card video-section">
+                <div class="card-header">
+                    <span class="card-title">Live Surveillance Feed</span>
+                    <span style="font-size: 0.85rem; color: var(--text-secondary);">Native HUD Active</span>
+                </div>
+                <div class="video-wrapper">
+                    <img src="{{ url_for('video_feed') }}" alt="Live Feed" id="video-stream">
+                </div>
+            </div>
+
+            <!-- System Audit Console -->
+            <div class="card audit-section">
+                <div class="card-header">
+                    <span class="card-title">System Audit Log</span>
+                    <span style="font-size: 0.8rem; color: var(--text-secondary);">Local Diagnostics</span>
+                </div>
+                <div class="audit-console" id="audit-console">
+                    <!-- Logs append here -->
+                    <div class="audit-entry"><span class="audit-time">[SYS]</span> Audit Console initialized. Ready for telemetry.</div>
+                </div>
+            </div>
         </div>
 
-        <div class="panel control-panel">
-            <button id="arm-btn" class="arm-btn disarmed" onclick="toggleArm()">🛡️ ACTIVAR SISTEMA</button>
+        <!-- Telemetry & Controls -->
+        <div class="card control-panel" style="background-color: var(--surface-color);">
+            <div class="card-header" style="margin: -24px -24px 16px -24px;">
+                <span class="card-title">System Telemetry</span>
+            </div>
             
-            <div style="margin-top: 10px;">
-                <span class="logs-title">📑 Bitácora de Auditoría</span>
-                <div class="logs-box" id="logs-container">
-                    <div class="log-entry">Sincronizando con el servidor...</div>
+            <div class="telemetry-grid">
+                
+                <!-- Pure CSS Radial Chart 1 -->
+                <div class="chart-box">
+                    <div class="circular-progress" id="chart-cpu" style="--val: 0; --clr: var(--accent-blue);">
+                        <div class="progress-content">
+                            <span class="progress-value" id="val-cpu">0%</span>
+                            <span class="progress-label">CPU Load</span>
+                        </div>
+                    </div>
                 </div>
+
+                <!-- Pure CSS Radial Chart 2 -->
+                <div class="chart-box">
+                    <div class="circular-progress" id="chart-threats" style="--val: 0; --clr: var(--danger);">
+                        <div class="progress-content">
+                            <span class="progress-value" id="val-threats">0</span>
+                            <span class="progress-label">Threats Today</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pure CSS Radial Chart 3 -->
+                <div class="chart-box">
+                    <div class="circular-progress" id="chart-hourly" style="--val: 0; --clr: var(--warning);">
+                        <div class="progress-content">
+                            <span class="progress-value" id="val-hourly">0</span>
+                            <span class="progress-label">Threats / Hr</span>
+                        </div>
+                    </div>
+                </div>
+
             </div>
+
+            <button id="arm-btn" class="btn-toggle disarmed" onclick="toggleArm()">
+                Enable Security System
+            </button>
         </div>
 
-        <div class="panel gallery-section">
-            <h3 class="gallery-header">📂 Evidencia Forense de Ingresos</h3>
-            <div class="gallery-grid" id="gallery-container">
-                </div>
+        <!-- Forensic DataGrid -->
+        <div class="card datagrid-panel">
+            <div class="card-header">
+                <span class="card-title">Forensic Event Archive</span>
+                <span style="font-size: 0.85rem; color: var(--accent-blue); cursor: pointer; font-weight: 500;" onclick="loadMoreGallery()">Refresh View ⟳</span>
+            </div>
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th width="100">Snapshot</th>
+                            <th width="120">Record ID</th>
+                            <th width="180">Timestamp</th>
+                            <th width="140">Classification</th>
+                            <th>Event Details</th>
+                        </tr>
+                    </thead>
+                    <tbody id="grid-body">
+                        <!-- Llenado por SSE y REST -->
+                    </tbody>
+                </table>
+            </div>
+            <button class="btn-load-more" onclick="loadMoreGallery()">Load Previous Archives ↓</button>
         </div>
+
     </div>
 
     <script>
-        // --- LÓGICA JAVASCRIPT ---
+        // --- 1. DOM ELEMENTS FOR PURE CSS CHARTS ---
+        const cpuRing = document.getElementById('chart-cpu');
+        const cpuVal = document.getElementById('val-cpu');
         
+        const threatsRing = document.getElementById('chart-threats');
+        const threatsVal = document.getElementById('val-threats');
+        
+        const hourlyRing = document.getElementById('chart-hourly');
+        const hourlyVal = document.getElementById('val-hourly');
+
+
+        // --- 2. SSE RESILIENCE (SERVER-SENT EVENTS) ---
+        let eventSource;
+        const statusEl = document.getElementById('sys-status');
+
+        function connectSSE() {
+            eventSource = new EventSource('/api/stream');
+
+            eventSource.onopen = () => {
+                statusEl.innerHTML = `<div class="status-dot"></div> Data Link: Secure`;
+                statusEl.className = "sys-status";
+            };
+
+            eventSource.onmessage = (e) => {
+                const data = JSON.parse(e.data);
+                
+                if (data.type === "telemetry") {
+                    
+                    // Update Pure CSS Charts instantly (0 flicker)
+                    // CPU (0-100%)
+                    cpuRing.style.setProperty('--val', data.cpu);
+                    cpuVal.innerText = `${data.cpu.toFixed(1)}%`;
+                    
+                    // Threats Today (Escalado para que llene el anillo, asumiendo max 50 = 100%)
+                    let dayFill = (data.day_total / 50) * 100;
+                    if (dayFill > 100) dayFill = 100;
+                    threatsRing.style.setProperty('--val', dayFill);
+                    threatsVal.innerText = data.day_total;
+
+                    // Threats Hour (Escalado, asumiendo max 20 = 100%)
+                    let hourFill = (data.hour_total / 20) * 100;
+                    if (hourFill > 100) hourFill = 100;
+                    hourlyRing.style.setProperty('--val', hourFill);
+                    hourlyVal.innerText = data.hour_total;
+
+                    updateUI(data.armed);
+                } 
+                else if (data.type === "log") {
+                    appendToAudit(data.message);
+                }
+                else if (data.type === "alert") {
+                    prependToGrid(null, "INTRUSIÓN CONFIRMADA", "THREAT", "CRITICAL");
+                    setTimeout(() => { offset=0; document.getElementById('grid-body').innerHTML=''; loadMoreGallery(); }, 1000);
+                }
+            };
+
+            eventSource.onerror = () => {
+                statusEl.innerHTML = `<div class="status-dot"></div> Data Link: Offline (Reconnecting...)`;
+                statusEl.className = "sys-status offline";
+                eventSource.close();
+                setTimeout(connectSSE, 3000);
+            };
+        }
+
+        connectSSE();
+
+        // --- SYSTEM AUDIT CONSOLE ---
+        function appendToAudit(message) {
+            const consoleEl = document.getElementById('audit-console');
+            const entry = document.createElement('div');
+            entry.className = 'audit-entry';
+            const time = new Date().toLocaleTimeString();
+            
+            // Si el mensaje ya trae corchetes de tiempo del backend, lo limpiamos o simplemente lo envolvemos
+            let cleanMsg = message.replace(/^\[\d{2}:\d{2}:\d{2}\]\s*/, '');
+            
+            entry.innerHTML = `<span class="audit-time">[${time}]</span> ${cleanMsg}`;
+            consoleEl.insertBefore(entry, consoleEl.firstChild);
+            
+            // Keep only last 50 entries to prevent memory bloat
+            if (consoleEl.children.length > 50) {
+                consoleEl.removeChild(consoleEl.lastChild);
+            }
+        }
+
+        // --- 3. FORENSIC DATAGRID (LAZY LOAD) ---
+        let offset = 0;
+        const limit = 20;
+
+        function prependToGrid(imageUrl, details, type, severity) {
+            const tbody = document.getElementById('grid-body');
+            const tr = document.createElement('tr');
+            
+            const thumbHtml = imageUrl 
+                ? `<img src="/static/${imageUrl}" class="td-thumb" onclick="window.open(this.src, '_blank')">` 
+                : `<div style="width:70px; height:45px; background:#F1F5F9; border-radius:6px; display:flex; align-items:center; justify-content:center; color:#94A3B8; font-size:0.65rem;">No Img</div>`;
+                
+            const badgeClass = severity === 'CRITICAL' ? 'badge badge-threat' : 'badge badge-info';
+            const timestamp = new Date().toLocaleTimeString();
+
+            tr.innerHTML = `
+                <td>${thumbHtml}</td>
+                <td style="color: var(--text-secondary); font-weight: 500;">SYS-LIVE</td>
+                <td style="color: var(--text-secondary);">${timestamp}</td>
+                <td><span class="${badgeClass}">${type}</span></td>
+                <td style="color: var(--text-primary); font-weight: 500;">${details}</td>
+            `;
+            tbody.insertBefore(tr, tbody.firstChild);
+        }
+
+        function loadMoreGallery() {
+            fetch(`/api/gallery/more?offset=${offset}&limit=${limit}`)
+                .then(res => res.json())
+                .then(events => {
+                    const tbody = document.getElementById('grid-body');
+                    events.forEach(evt => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td><img src="/static/${evt.image}" class="td-thumb" onclick="window.open(this.src, '_blank')"></td>
+                            <td style="color: var(--text-secondary); font-weight: 500;">DB-${evt.id}</td>
+                            <td style="color: var(--text-secondary);">${evt.timestamp}</td>
+                            <td><span class="badge badge-threat">Threat Log</span></td>
+                            <td style="color: var(--text-primary); font-weight: 500;">Forensic capture archived in local database</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                    offset += limit;
+                })
+                .catch(err => console.error("Error loading gallery:", err));
+        }
+
+        loadMoreGallery();
+
+
+        // --- 4. COMMAND OVERRIDE ---
         function toggleArm() {
             fetch('/api/toggle_arm', { method: 'POST' })
                 .then(res => res.json())
-                .then(data => updateUI(data.armed));
+                .then(data => updateUI(data.armed))
+                .catch(err => console.error("Override failed:", err));
         }
 
         function updateUI(isArmed) {
             const btn = document.getElementById('arm-btn');
             if (isArmed) {
-                btn.innerHTML = "🛑 DESACTIVAR SISTEMA";
-                btn.className = "arm-btn armed";
+                btn.innerHTML = "Disable Security System";
+                btn.className = "btn-toggle armed";
             } else {
-                btn.innerHTML = "🛡️ ACTIVAR SISTEMA";
-                btn.className = "arm-btn disarmed";
+                btn.innerHTML = "Enable Security System";
+                btn.className = "btn-toggle disarmed";
             }
         }
-
-        function refreshData() {
-            // 1. Obtener Estado y Logs
-            fetch('/api/status')
-                .then(res => res.json())
-                .then(data => {
-                    updateUI(data.armed);
-                    
-                    const logBox = document.getElementById('logs-container');
-                    logBox.innerHTML = '';
-                    data.logs.forEach(log => {
-                        const div = document.createElement('div');
-                        div.className = 'log-entry';
-                        div.textContent = log;
-                        logBox.appendChild(div);
-                    });
-                });
-
-            // 2. Obtener Galería
-            fetch('/api/gallery')
-                .then(res => res.json())
-                .then(events => {
-                    const gallery = document.getElementById('gallery-container');
-                    gallery.innerHTML = '';
-                    
-                    if (events.length === 0) {
-                        gallery.innerHTML = '<p style="padding:10px; color: #7f8c8d;">No hay registros de ingresos recientes.</p>';
-                    }
-
-                    events.forEach(evt => {
-                        const card = document.createElement('div');
-                        card.className = 'evidence-card';
-                        card.innerHTML = `
-                            <img src="/static/${evt.image}" onclick="window.open(this.src)" title="Haga clic para ampliar">
-                            <div class="evidence-meta">Registro #${evt.id} | ${evt.timestamp}</div>
-                        `;
-                        gallery.appendChild(card);
-                    });
-                });
-        }
-
-        setInterval(refreshData, 1000);
     </script>
 </body>
 </html>

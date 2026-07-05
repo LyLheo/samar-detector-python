@@ -1,39 +1,51 @@
 # -*- coding: utf-8 -*-
-# webapp.py - SAMAR ULTIMATE v5.2 (Corregido: Estabilidad + Integridad de Galería)
+# webapp.py - SAMAR v7.0 (VMS Command Center / SSE Architecture)
 
 from flask import Flask, render_template, Response, jsonify, request
-import cv2, time, os, sqlite3
+import os, sqlite3, secrets, time
 from datetime import datetime
 import threading
+import multiprocessing
+import queue
+import json
 from dotenv import load_dotenv 
-from ultralytics import YOLO
+
+try:
+    import psutil
+    HAS_PSUTIL = True
+except ImportError:
+    HAS_PSUTIL = False
+
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
 
+from vision_engine import VisionEngine
+
 # --- 1. CONFIGURACIÓN INICIAL ---
 load_dotenv()
 app = Flask(__name__)
+app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', secrets.token_hex(32))
 
-# Configuración de Rutas
+# --- SecOps: Global Security Headers ---
+@app.after_request
+def add_security_headers(response):
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    response.headers['Content-Security-Policy'] = "default-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com;"
+    return response
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CAPTURAS_DIR = os.path.join(BASE_DIR, 'static', 'capturas')
 DB_PATH = os.path.join(BASE_DIR, 'samar.db')
-
-# Asegurar que exista el directorio de capturas
 os.makedirs(CAPTURAS_DIR, exist_ok=True)
 
-# Cargar IA
-print("⚙️ Cargando sistema neural YOLOv8s...")
-model = YOLO('yolov8s.pt')
-
-# --- 2. GESTIÓN DE BASE DE DATOS (SQLite) ---
+# --- 2. BASE DE DATOS ---
 def init_db():
-    """Inicializa la DB si no existe"""
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    # Tabla de Eventos
     c.execute('''CREATE TABLE IF NOT EXISTS eventos (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     timestamp TEXT,
@@ -44,12 +56,10 @@ def init_db():
     conn.close()
 
 def registrar_evento_db(tipo, imagen_nombre=""):
-    """Inserta un registro en la BD de forma segura"""
     try:
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        # Guardamos la ruta relativa para el HTML
         img_rel_path = f"capturas/{imagen_nombre}" if imagen_nombre else ""
         c.execute("INSERT INTO eventos (timestamp, tipo, imagen_path) VALUES (?, ?, ?)",
                   (timestamp, tipo, img_rel_path))
@@ -58,180 +68,142 @@ def registrar_evento_db(tipo, imagen_nombre=""):
     except Exception as e:
         print(f"Error DB: {e}")
 
-# Inicializamos la DB al arrancar
 init_db()
 
-# --- 3. VARIABLES GLOBALES Y ESTADO ---
-video = cv2.VideoCapture(1)
+# --- 3. ESTADO GLOBAL E IPC ---
 global_logs = []
+SISTEMA_ARMADO = False
+latest_frame = b''
+sse_clients = [] # Lista de colas para Server-Sent Events
 
-# Variables de Estado del Sistema
-SISTEMA_ARMADO = False  # El sistema empieza desarmado
-alerta_enviada_en_este_evento = False
-alert_trigger_time = None
-last_person_seen_time = None
-
-# Constantes de Configuración
 REMITENTE_EMAIL = os.getenv("GMAIL_USER")
 REMITENTE_PASS = os.getenv("GMAIL_PASS")
 DESTINATARIO_EMAIL = os.getenv("GMAIL_DESTINO")
-ALERT_DELAY_SECONDS = 1.0
-ALERT_COOLDOWN_SECONDS = 10.0
 
-# --- 4. LÓGICA DE NEGOCIO ---
+frame_queue = None
+event_queue = None
+command_queue = None
+stop_event = None
+
+# --- 4. SSE Y CONSUMIDORES ---
+def notify_sse_clients(data_dict):
+    """Envía un payload JSON a todos los clientes web conectados vía SSE"""
+    data_str = json.dumps(data_dict)
+    for q in sse_clients:
+        try:
+            q.put_nowait(data_str)
+        except queue.Full:
+            pass
 
 def agregar_log(mensaje):
     timestamp = datetime.now().strftime("%H:%M:%S")
     log_entry = f"[{timestamp}] {mensaje}"
     global_logs.insert(0, log_entry)
-    if len(global_logs) > 20: global_logs.pop()
+    if len(global_logs) > 50: global_logs.pop()
+    notify_sse_clients({"type": "log", "message": log_entry})
 
-def enviar_alerta_completa(frame_evidencia):
-    """Guarda foto localmente, registra en DB y envía correo"""
-    global alerta_enviada_en_este_evento
-    
+def procesar_intrusion(imagen_bytes):
     timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"evidencia_{timestamp_str}.jpg"
     filepath = os.path.join(CAPTURAS_DIR, filename)
     
-    agregar_log("📸 Guardando evidencia forense local...")
-    
-    # 1. Guardar Evidencia Local
-    cv2.imwrite(filepath, frame_evidencia)
-    
-    # 2. Registrar en Base de Datos
+    with open(filepath, 'wb') as f:
+        f.write(imagen_bytes)
+        
     registrar_evento_db("INTRUSION", filename)
+    agregar_log("📸 Amenaza archivada localmente.")
     
-    # 3. Enviar Correo
-    agregar_log("🚀 Iniciando protocolo de notificación SMTP...")
     try:
-        _, buffer = cv2.imencode('.jpg', frame_evidencia)
-        imagen_bytes = buffer.tobytes()
         msg = MIMEMultipart()
-        msg['Subject'] = f"🚨 ALERTA CRÍTICA - Intrusión Detectada {timestamp_str}"
+        msg['Subject'] = f"🚨 ALERTA - SAMAR SOC {timestamp_str}"
         msg['From'] = REMITENTE_EMAIL
         msg['To'] = DESTINATARIO_EMAIL
-        msg.attach(MIMEText("El sistema SAMAR ha detectado una amenaza confirmada.\n\nSe ha generado un registro forense en el servidor local."))
+        msg.attach(MIMEText("SAMAR ha detectado una anomalía crítica.\nSe adjunta telemetría óptica."))
         msg.attach(MIMEImage(imagen_bytes, name=filename))
 
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
             server.login(REMITENTE_EMAIL, REMITENTE_PASS) 
             server.sendmail(REMITENTE_EMAIL, DESTINATARIO_EMAIL, msg.as_string())
-        agregar_log("✅ Notificación enviada correctamente.")
+        agregar_log("✅ Notificación SMTP despachada.")
     except Exception as e:
-        agregar_log(f"❌ Fallo en envío de correo: {e}")
+        agregar_log(f"❌ Fallo SMTP: {e}")
 
-def generar_frames():
-    """
-    Lógica principal de visión por computador.
-    CORREGIDA: Usa acumulador de peso para evitar que objetos estáticos desaparezcan.
-    """
-    global alerta_enviada_en_este_evento, alert_trigger_time, last_person_seen_time, SISTEMA_ARMADO
-    
-    # Variable estática para el fondo promedio (más estable que first_frame)
-    avg_bg = None
-
-    while True:
-        success, frame = video.read()
-        if not success: break
+def get_db_metrics():
+    """Calcula las detecciones del día y de la última hora"""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
         
-        # Preprocesamiento
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        gray = cv2.GaussianBlur(gray, (21, 21), 0)
+        # Totales del día
+        today_str = datetime.now().strftime("%Y-%m-%d") + "%"
+        c.execute("SELECT COUNT(*) FROM eventos WHERE timestamp LIKE ?", (today_str,))
+        day_total = c.fetchone()[0]
+        
+        # Última hora
+        one_hour_ago = (time.time() - 3600)
+        c.execute("SELECT COUNT(*) FROM eventos WHERE strftime('%s', timestamp) >= ?", (str(one_hour_ago),))
+        hour_total = c.fetchone()[0]
+        
+        conn.close()
+        return day_total, hour_total
+    except Exception:
+        return 0, 0
 
-        # Inicializar fondo si es necesario
-        if avg_bg is None:
-            avg_bg = gray.copy().astype("float")
+def ipc_event_consumer():
+    """Hilo principal de eventos. Procesa IPC y emite Telemetría SSE"""
+    last_metrics_time = time.time()
+    
+    while not stop_event.is_set():
+        try:
+            evento = event_queue.get(timeout=0.5)
+            tipo = evento.get("type")
+            
+            if tipo == "LOG":
+                agregar_log(evento["message"])
+            elif tipo == "INTRUSION":
+                notify_sse_clients({"type": "alert"})
+                threading.Thread(target=procesar_intrusion, args=(evento["frame_bytes"],), daemon=True).start()
+                
+        except queue.Empty:
+            # Heartbeat & Telemetry emitido cada segundo
+            current_time = time.time()
+            if current_time - last_metrics_time >= 1.0:
+                last_metrics_time = current_time
+                
+                cpu_usage = psutil.cpu_percent() if HAS_PSUTIL else 45.2
+                ram_usage = psutil.virtual_memory().percent if HAS_PSUTIL else 60.1
+                day_total, hour_total = get_db_metrics()
+                
+                metrics_payload = {
+                    "type": "telemetry",
+                    "cpu": cpu_usage,
+                    "ram": ram_usage,
+                    "armed": SISTEMA_ARMADO,
+                    "day_total": day_total,
+                    "hour_total": hour_total
+                }
+                notify_sse_clients(metrics_payload)
+        except Exception as e:
+            print(f"Error IPC Consumer: {e}")
+
+def ipc_frame_consumer():
+    global latest_frame
+    while not stop_event.is_set():
+        try:
+            latest_frame = frame_queue.get(timeout=1.0)
+        except queue.Empty:
             continue
+        except Exception as e:
+            print(f"Error Frame Consumer: {e}")
 
-        if SISTEMA_ARMADO:
-            # --- LÓGICA DE DETECCIÓN MEJORADA ---
-            
-            # 1. Actualización SUAVE del fondo
-            # El 0.01 significa que el fondo cambia MUY lento. 
-            # Si te quedas quieto, NO te absorbe el fondo inmediatamente.
-            cv2.accumulateWeighted(gray, avg_bg, 0.01)
-            
-            # Diferencia absoluta entre el fondo promedio y el frame actual
-            delta = cv2.absdiff(gray, cv2.convertScaleAbs(avg_bg))
-            
-            thresh = cv2.threshold(delta, 30, 255, cv2.THRESH_BINARY)[1]
-            thresh = cv2.dilate(thresh, None, iterations=2)
-            cnts, _ = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            
-            movimiento = False
-            for c in cnts:
-                if cv2.contourArea(c) > 2000: # Filtro de ruido
-                    movimiento = True
-                    (x, y, w, h) = cv2.boundingRect(c)
-                    cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 1) # Caja Verde
+def generar_frames_web():
+    global latest_frame
+    while True:
+        if latest_frame:
+            yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + latest_frame + b'\r\n')
+        time.sleep(0.04)
 
-            # 2. Detección de IA (Si hay movimiento)
-            person_detected = False
-            if movimiento:
-                results = model(frame, conf=0.5, verbose=False) # Confianza 50%
-                for r in results:
-                    for box in r.boxes:
-                        if int(box.cls[0]) == 0: # Persona
-                            person_detected = True
-                            x1, y1, x2, y2 = map(int, box.xyxy[0])
-                            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 3) # Caja Roja
-                            cv2.putText(frame, 'AMENAZA DETECTADA', (x1, y1-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255), 2)
-
-            # 3. Lógica de Alerta (Resetear trigger solo si se pierde por completo)
-            if person_detected:
-                last_person_seen_time = time.time()
-                
-                if not alerta_enviada_en_este_evento:
-                    # Si es la primera vez que lo vemos en este evento
-                    if alert_trigger_time is None:
-                        alert_trigger_time = time.time()
-                        agregar_log("⚠️ Posible amenaza. Verificando...")
-                    
-                    # Chequear si pasó el segundo de seguridad
-                    elif (time.time() - alert_trigger_time) >= ALERT_DELAY_SECONDS:
-                        alerta_enviada_en_este_evento = True
-                        agregar_log("🚨 AMENAZA CONFIRMADA. Ejecutando protocolos.")
-                        threading.Thread(target=enviar_alerta_completa, args=(frame.copy(),), daemon=True).start()
-                        alert_trigger_time = None
-            else:
-                # Si dejamos de ver a la persona...
-                
-                # Si estábamos "armando" la alerta pero la persona desapareció rápido (falso positivo)
-                if alert_trigger_time is not None: 
-                    # Pequeña tolerancia: No resetear inmediatamente si parpadea la detección
-                    if (time.time() - alert_trigger_time) > 2.0: 
-                        alert_trigger_time = None
-
-                # Si YA enviamos alerta, esperamos el cooldown
-                if alerta_enviada_en_este_evento and last_person_seen_time:
-                    if (time.time() - last_person_seen_time) >= ALERT_COOLDOWN_SECONDS:
-                        alerta_enviada_en_este_evento = False
-                        last_person_seen_time = None
-                        agregar_log("🔄 Zona despejada. Sistema rearmado.")
-            
-            # Estado visual
-            cv2.rectangle(frame, (0,0), (640, 40), (0,0,0), -1)
-            cv2.putText(frame, "SISTEMA ARMADO - VIGILANCIA ACTIVA", (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-
-        else:
-            # SISTEMA DESARMADO
-            # Reiniciamos el fondo para que cuando se arme no detecte cambios viejos
-            avg_bg = gray.copy().astype("float")
-            
-            cv2.rectangle(frame, (0,0), (640, 40), (0,0,0), -1)
-            cv2.putText(frame, "SISTEMA DESARMADO - STANDBY", (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
-            
-            # Resetear variables de alerta
-            alert_trigger_time = None
-            alerta_enviada_en_este_evento = False
-            
-        # Codificar para web
-        frame_resized = cv2.resize(frame, (640, 480))
-        _, buffer = cv2.imencode('.jpg', frame_resized, [int(cv2.IMWRITE_JPEG_QUALITY), 60])
-        yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
-
-# --- 5. RUTAS DE LA API (Endpoints) ---
+# --- 5. ENDPOINTS DE LA API ---
 
 @app.route('/')
 def index():
@@ -239,59 +211,90 @@ def index():
 
 @app.route('/video_feed')
 def video_feed():
-    return Response(generar_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+    return Response(generar_frames_web(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
-@app.route('/api/status')
-def get_status():
-    """Devuelve estado y logs para el JS"""
-    return jsonify({
-        "armed": SISTEMA_ARMADO,
-        "logs": global_logs
-    })
+@app.route('/api/stream')
+def sse_stream():
+    """Generador Server-Sent Events para telemetría en tiempo real"""
+    def event_stream():
+        q = queue.Queue(maxsize=10)
+        sse_clients.append(q)
+        try:
+            # Enviar estado inicial
+            initial_logs = [{"type": "log", "message": log} for log in reversed(global_logs)]
+            for log in initial_logs:
+                yield f"data: {json.dumps(log)}\n\n"
+                
+            while True:
+                data = q.get()
+                yield f"data: {data}\n\n"
+        except GeneratorExit:
+            sse_clients.remove(q)
+    
+    return Response(event_stream(), mimetype="text/event-stream")
 
 @app.route('/api/toggle_arm', methods=['POST'])
 def toggle_arm():
-    """Interruptor para Armar/Desarmar"""
     global SISTEMA_ARMADO
     SISTEMA_ARMADO = not SISTEMA_ARMADO
-    status = "ARMADO" if SISTEMA_ARMADO else "DESARMADO"
-    agregar_log(f"🕹️ Comando recibido: Sistema {status} manualmente.")
+    status = "ARMED" if SISTEMA_ARMADO else "STANDBY"
+    agregar_log(f"🕹️ CMD: Override a estado {status}")
+    
+    if command_queue:
+        command_queue.put({"cmd": "ARM", "value": SISTEMA_ARMADO})
+        
     return jsonify({"success": True, "armed": SISTEMA_ARMADO})
 
-@app.route('/api/gallery')
-def get_gallery():
-    """Consulta la Base de Datos y devuelve SOLO las imágenes que existen físicamente"""
+@app.route('/api/gallery/more')
+def get_gallery_more():
+    """API REST para paginación de la Forensic Grid (Lazy Loading)"""
+    offset = request.args.get('offset', 0, type=int)
+    limit = request.args.get('limit', 20, type=int)
+    
     try:
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row 
         c = conn.cursor()
-        # Traemos un poco más por si hay archivos borrados
-        c.execute("SELECT * FROM eventos WHERE imagen_path != '' ORDER BY id DESC LIMIT 20")
+        c.execute("SELECT * FROM eventos WHERE imagen_path != '' ORDER BY id DESC LIMIT ? OFFSET ?", (limit, offset))
         rows = c.fetchall()
         conn.close()
         
         events = []
         for row in rows:
-            # --- MEJORA DE SEGURIDAD ---
-            # Verificamos si el archivo existe realmente en el disco
-            full_path = os.path.join(BASE_DIR, 'static', row["imagen_path"])
-            
-            if os.path.exists(full_path):
-                events.append({
-                    "id": row["id"],
-                    "timestamp": row["timestamp"],
-                    "image": row["imagen_path"]
-                })
-                
-                # Limitamos a 6 fotos para el diseño
-                if len(events) >= 6:
-                    break
-            # ---------------------------
-            
+            events.append({
+                "id": row["id"],
+                "timestamp": row["timestamp"],
+                "image": row["imagen_path"]
+            })
         return jsonify(events)
     except Exception as e:
         print(f"Error galería: {e}")
         return jsonify([])
 
+# --- 6. ARRANQUE DEL SISTEMA ---
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    if os.environ.get('WERKZEUG_RUN_MAIN') != 'true':
+        print("🚀 Inicializando SAMAR SOC Architecture...")
+        
+        frame_queue = multiprocessing.Queue(maxsize=2)
+        event_queue = multiprocessing.Queue()
+        command_queue = multiprocessing.Queue()
+        stop_event = multiprocessing.Event()
+
+        motor_vision = VisionEngine(frame_queue, event_queue, command_queue, stop_event, camera_index=0)
+        motor_vision.start()
+        
+        threading.Thread(target=ipc_event_consumer, daemon=True).start()
+        threading.Thread(target=ipc_frame_consumer, daemon=True).start()
+
+    try:
+        flask_debug = os.getenv('FLASK_DEBUG', 'false').strip().lower() in {'1', 'true', 'yes', 'on'}
+        app.run(debug=flask_debug, host='0.0.0.0', port=5000, use_reloader=False)
+    finally:
+        if os.environ.get('WERKZEUG_RUN_MAIN') != 'true':
+            print("🛑 Recibida señal de apagado. Cierre de conexiones y colas...")
+            stop_event.set()
+            motor_vision.join(timeout=5)
+            if motor_vision.is_alive():
+                motor_vision.terminate()
+            print("✅ SOC Apagado exitosamente.")

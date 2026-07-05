@@ -1,25 +1,37 @@
-# Archivo .gitignore
+# SAMAR SecOps Strict .gitignore
+
+# Database and Forensics
+*.db
+*.sqlite
+*.sqlite3
 samar.db
 static/capturas/*.jpg
-# El archivo de contraseñas
-.env
 
-# Archivos generados por el script
+# Secrets & Environment (STRICT)
+.env
+.env.*
+!.env.example
+
+# Runtime & Caches
+__pycache__/
+*.pyc
 Times.csv
 visualizacion_eventos.html
 Grafica_Movimiento.html
 
-# Archivos de caché de Python
-__pycache__/
-*.pyc
-
-# (Opcional) Si usas un entorno virtual
+# Virtual Environments
 .venv/
 venv/
+env/
 
-# Archivos de modelo de IA
+# AI Models & Checkpoints
 *.pt
 *.engine
 
-# Archivos de caché de Ultralytics
+# Ultralytics & Local AI State
 *.json
+.atl/
+
+# OS Hidden Files
+.DS_Store
+Thumbs.db
